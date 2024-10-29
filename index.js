@@ -4,7 +4,7 @@ const bodyParser = require("body-parser");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 
-require("dotenv").config();
+require("dotenv").config(); // Ensure environment variables are loaded
 
 const User = require("./models/user");
 const Order = require("./models/order");
@@ -18,13 +18,23 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 // ------------------ DATABASE CONNECTION ------------------
+const mongoURI = process.env.DATABASE_URL;
+
+if (!mongoURI) {
+  console.error(
+    "MongoDB connection string is missing. Please set DATABASE_URL."
+  );
+  process.exit(1); // Stop the server if no DB URL is found
+}
+
+// Establish a connection with MongoDB
 mongoose
-  .connect(process.env.CONNECTION_STRING, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("Connected to MongoDB"))
-  .catch((err) => console.error("MongoDB connection error:", err));
+  .catch((err) => {
+    console.error("MongoDB connection error:", err);
+    process.exit(1); // Exit if MongoDB connection fails
+  });
 
 // ------------------ UTILITIES ------------------
 const generateOrderId = () => {
