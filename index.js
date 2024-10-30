@@ -1,11 +1,14 @@
 const express = require("express");
+const cors = require("cors"); // Import cors
+const bodyParser = require("body-parser"); // Import body-parser
+const mongoose = require("mongoose"); // Import mongoose
 const app = express();
 const port = process.env.PORT || 3000;
 
 // ------------------ MIDDLEWARE ------------------
-app.use(cors({ origin: "*" }));
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
+app.use(cors({ origin: "*" })); // Enable CORS
+app.use(bodyParser.urlencoded({ extended: false })); // Parse URL-encoded data
+app.use(bodyParser.json()); // Parse JSON data
 
 // ------------------ DATABASE CONNECTION ------------------
 const mongoURI = process.env.DATABASE_URL;
@@ -33,10 +36,29 @@ const generateOrderId = () => {
   return `ORD-${datePart}-${randomPart}`;
 };
 
-const productSchema = new mongoose.Schema({}, { collection: "products" }); // Adjust collection name as needed
+// Define Product schema and model
+const productSchema = new mongoose.Schema({}, { collection: "products" });
 const Product = mongoose.model("Product", productSchema);
 
 // ------------------ ROUTES ------------------
+app.get("/", (req, res) => {
+  res.send("Hello from Wallmasters Backend!");
+});
+
+// Sample API: Fetch all products
+app.get("/products", async (req, res) => {
+  try {
+    const products = await Product.find();
+    res.json(products);
+  } catch (error) {
+    res.status(500).send("Error fetching products.");
+  }
+});
+
+// ------------------ SERVER ------------------
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
 
 // Route to Get All Products
 app.get("/products", async (req, res) => {
@@ -330,4 +352,8 @@ app.delete("/saved-items/:userId/:productId", async (req, res) => {
     console.error("Error deleting saved item:", error);
     res.status(500).json({ message: "Failed to delete saved item." });
   }
+});
+
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });
