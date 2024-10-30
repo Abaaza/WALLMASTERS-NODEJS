@@ -6,6 +6,7 @@ const bodyParser = require("body-parser");
 require("dotenv").config(); // Ensure environment variables are loaded
 
 const app = express();
+const PORT = process.env.PORT || 3000; // Use the Heroku port or fallback to 3000
 
 // Middleware
 app.use(cors({ origin: "*" }));
@@ -339,4 +340,8 @@ app.delete("/saved-items/:userId/:productId", async (req, res) => {
     console.error("Error deleting saved item:", error);
     res.status(500).json({ message: "Failed to delete saved item." });
   }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
