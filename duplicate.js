@@ -1,4 +1,14 @@
-api / index.js;
+const express = require("express");
+const mongoose = require("mongoose");
+const bodyParser = require("body-parser");
+const cors = require("cors");
+const jwt = require("jsonwebtoken");
+
+require("dotenv").config(); // Ensure environment variables are loaded
+
+const User = require("./models/user");
+const Order = require("./models/order");
+
 const app = express();
 const port = process.env.PORT || 3000;
 
