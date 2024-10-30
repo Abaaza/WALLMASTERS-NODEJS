@@ -1,4 +1,4 @@
-require("dotenv").config(); // Add this line at the top
+require("dotenv").config(); // Load environment variables
 
 const express = require("express");
 const cors = require("cors");
@@ -6,7 +6,7 @@ const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 
 const app = express();
-const port = process.env.PORT || 3000; // Use PORT from environment variable or fallback to 3000
+const PORT = process.env.PORT || 3000; // Use Heroku's port or fallback to 3000
 
 // ------------------ MIDDLEWARE ------------------
 app.use(cors({ origin: "*" }));
@@ -356,6 +356,6 @@ app.delete("/saved-items/:userId/:productId", async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
