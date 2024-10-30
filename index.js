@@ -1,34 +1,24 @@
-require("dotenv").config(); // Load environment variables
-
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 
 const app = express();
-const PORT = process.env.PORT || 3000; // Use Heroku's port or fallback to 3000
+const PORT = process.env.PORT || 3000; // Use the Heroku port or fallback to 3000
 
-// ------------------ MIDDLEWARE ------------------
+// Middleware
 app.use(cors({ origin: "*" }));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-// ------------------ DATABASE CONNECTION ------------------
+// Database connection
 const mongoURI = process.env.CONNECTION_STRING;
-
-if (!mongoURI) {
-  console.error(
-    "MongoDB connection string is missing. Please set CONNECTION_STRING."
-  );
-  process.exit(1);
-}
-
 mongoose
   .connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => {
     console.error("MongoDB connection error:", err);
-    process.exit(1);
+    process.exit(1); // Exit if DB connection fails
   });
 
 // ------------------ UTILITIES ------------------
@@ -58,9 +48,6 @@ app.get("/products", async (req, res) => {
 });
 
 // ------------------ SERVER ------------------
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
 
 // Route to Get All Products
 app.get("/products", async (req, res) => {
