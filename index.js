@@ -3,8 +3,10 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 
+require("dotenv").config(); // Ensure environment variables are loaded
+
 const app = express();
-const PORT = process.env.PORT || 3000; // Use the Heroku port or fallback to 3000
+const PORT = process.env.PORT || 3001; // Use the Heroku port or fallback to 3000
 
 // Middleware
 app.use(cors({ origin: "*" }));
