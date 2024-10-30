@@ -1,32 +1,34 @@
+require("dotenv").config(); // Add this line at the top
+
 const express = require("express");
-const cors = require("cors"); // Import cors
-const bodyParser = require("body-parser"); // Import body-parser
-const mongoose = require("mongoose"); // Import mongoose
+const cors = require("cors");
+const mongoose = require("mongoose");
+const bodyParser = require("body-parser");
+
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3000; // Use PORT from environment variable or fallback to 3000
 
 // ------------------ MIDDLEWARE ------------------
-app.use(cors({ origin: "*" })); // Enable CORS
-app.use(bodyParser.urlencoded({ extended: false })); // Parse URL-encoded data
-app.use(bodyParser.json()); // Parse JSON data
+app.use(cors({ origin: "*" }));
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
 // ------------------ DATABASE CONNECTION ------------------
-const mongoURI = process.env.DATABASE_URL;
+const mongoURI = process.env.CONNECTION_STRING;
 
 if (!mongoURI) {
   console.error(
-    "MongoDB connection string is missing. Please set DATABASE_URL."
+    "MongoDB connection string is missing. Please set CONNECTION_STRING."
   );
-  process.exit(1); // Stop the server if no DB URL is found
+  process.exit(1);
 }
 
-// Establish a connection with MongoDB
 mongoose
   .connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => {
     console.error("MongoDB connection error:", err);
-    process.exit(1); // Exit if MongoDB connection fails
+    process.exit(1);
   });
 
 // ------------------ UTILITIES ------------------
