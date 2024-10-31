@@ -2,8 +2,13 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
+require("dotenv").config();
+console.log("CONNECTION_STRING:", process.env.CONNECTION_STRING);
+console.log("JWT_SECRET:", process.env.JWT_SECRET);
+const jwt = require("jsonwebtoken");
 
-require("dotenv").config(); // Ensure environment variables are loaded
+const User = require("./models/user");
+const Order = require("./models/order");
 
 const app = express();
 const PORT = process.env.PORT || 3000; // Use the Heroku port or fallback to 3000
@@ -35,6 +40,30 @@ const productSchema = new mongoose.Schema({}, { collection: "products" });
 const Product = mongoose.model("Product", productSchema);
 
 // ------------------ ROUTES ------------------
+app.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user || user.password !== password) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    res.status(200).json({
+      message: "Login successful",
+      user: { _id: user._id, name: user.name, email: user.email },
+      token,
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ message: "Login failed", error });
+  }
+});
+
 app.get("/", (req, res) => {
   res.send("Hello from Wallmasters Backend!");
 });
@@ -50,16 +79,6 @@ app.get("/products", async (req, res) => {
 });
 
 // ------------------ SERVER ------------------
-
-// Route to Get All Products
-app.get("/products", async (req, res) => {
-  try {
-    const products = await Product.find();
-    res.json(products);
-  } catch (err) {
-    res.status(500).send(err);
-  }
-});
 
 // Register Route
 app.post("/register", async (req, res) => {
@@ -92,29 +111,6 @@ app.post("/register", async (req, res) => {
 });
 
 // Login Route
-app.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const user = await User.findOne({ email });
-    if (!user || user.password !== password) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
-
-    res.status(200).json({
-      message: "Login successful",
-      user: { _id: user._id, name: user.name, email: user.email },
-      token,
-    });
-  } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({ message: "Login failed", error });
-  }
-});
 
 // Change Password Route
 app.post("/change-password", async (req, res) => {
