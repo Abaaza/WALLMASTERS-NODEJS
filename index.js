@@ -178,7 +178,7 @@ app.post("/orders", async (req, res) => {
 
     // Email options for the customer
     const customerMailOptions = {
-      from: process.env.EMAIL_USER, // Sender's email address
+      from: `"Wall Masters" <${process.env.EMAIL_USER}>`, // Custom sender name
       to: shippingAddress.email, // Customer's email address
       subject: "Wall Masters Order Confirmation",
       text: `Hello ${
@@ -192,7 +192,7 @@ app.post("/orders", async (req, res) => {
 
     // Email options for yourself (admin)
     const adminMailOptions = {
-      from: process.env.EMAIL_USER, // Sender's email address
+      from: `"Wall Masters" <${process.env.EMAIL_USER}>`, // Custom sender name
       to: "info@wall-masters.com", // Your admin email address
       subject: "New Order Received - Wall Masters",
       text: `New Order Received:\n\nOrder ID: ${
