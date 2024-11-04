@@ -6,6 +6,7 @@ require("dotenv").config();
 console.log("CONNECTION_STRING:", process.env.CONNECTION_STRING);
 console.log("JWT_SECRET:", process.env.JWT_SECRET);
 const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
 
 const User = require("./models/user");
 const Order = require("./models/order");
@@ -35,9 +36,33 @@ const generateOrderId = () => {
   return `ORD-${datePart}-${randomPart}`;
 };
 
+const transporter = nodemailer.createTransport({
+  host: "smtp.office365.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+  tls: {
+    ciphers: "SSLv3",
+  },
+  debug: true, // Enable debug output
+});
+
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("SMTP Connection Error:", error);
+  } else {
+    console.log("SMTP Server is ready to take our messages");
+  }
+});
+
 // Define Product schema and model
 const productSchema = new mongoose.Schema({}, { collection: "products" });
 const Product = mongoose.model("Product", productSchema);
+console.log("Email User:", process.env.EMAIL_USER);
+console.log("Email Pass:", process.env.EMAIL_PASS);
 
 // ------------------ ROUTES ------------------
 app.post("/login", async (req, res) => {
@@ -139,6 +164,7 @@ app.post("/orders", async (req, res) => {
   try {
     const { products, totalPrice, shippingAddress, userId } = req.body;
 
+    // Create a new order instance
     const newOrder = new Order({
       orderId: generateOrderId(),
       user: userId || "guest",
@@ -147,10 +173,32 @@ app.post("/orders", async (req, res) => {
       shippingAddress,
     });
 
+    // Save the order to the database
     await newOrder.save();
-    res
-      .status(201)
-      .json({ message: "Order placed successfully", order: newOrder });
+
+    // Define email options for Nodemailer
+    const mailOptions = {
+      from: process.env.EMAIL_USER, // Sender's email address
+      to: shippingAddress.email, // Recipient's email address
+      subject: "Order Confirmation - Wall Masters",
+      text: `Hello ${
+        shippingAddress.name
+      },\n\nThank you for your order! Your order ID is ${
+        newOrder.orderId
+      }. We will process your order soon.\n\nOrder Details:\n- Total Price: $${totalPrice}\n- Items: ${products
+        .map((item) => `${item.name} (x${item.quantity})`)
+        .join(", ")}\n\nRegards,\nWall Masters Team`,
+    };
+
+    // Send the confirmation email
+    await transporter.sendMail(mailOptions);
+    console.log("Confirmation email sent to user:", shippingAddress.email);
+
+    // Respond with success message and order details
+    res.status(201).json({
+      message: "Order placed successfully and email sent to user.",
+      order: newOrder,
+    });
   } catch (error) {
     console.error("Order placement failed:", error);
     res.status(500).json({ message: "Order placement failed", error });
