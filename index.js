@@ -176,27 +176,45 @@ app.post("/orders", async (req, res) => {
     // Save the order to the database
     await newOrder.save();
 
-    // Define email options for Nodemailer
-    const mailOptions = {
+    // Email options for the customer
+    const customerMailOptions = {
       from: process.env.EMAIL_USER, // Sender's email address
-      to: shippingAddress.email, // Recipient's email address
-      subject: "Order Confirmation - Wall Masters",
+      to: shippingAddress.email, // Customer's email address
+      subject: "Wall Masters Order Confirmation",
       text: `Hello ${
         shippingAddress.name
       },\n\nThank you for your order! Your order ID is ${
         newOrder.orderId
-      }. We will process your order soon.\n\nOrder Details:\n- Total Price: $${totalPrice}\n- Items: ${products
+      }. We will process your order soon.\n\nOrder Details:\n- Total Price: ${totalPrice} EGP\n- Items: ${products
         .map((item) => `${item.name} (x${item.quantity})`)
         .join(", ")}\n\nRegards,\nWall Masters Team`,
     };
 
-    // Send the confirmation email
-    await transporter.sendMail(mailOptions);
-    console.log("Confirmation email sent to user:", shippingAddress.email);
+    // Email options for yourself (admin)
+    const adminMailOptions = {
+      from: process.env.EMAIL_USER, // Sender's email address
+      to: "info@wall-masters.com", // Your admin email address
+      subject: "New Order Received - Wall Masters",
+      text: `New Order Received:\n\nOrder ID: ${
+        newOrder.orderId
+      }\nCustomer Name: ${shippingAddress.name}\nCustomer Email: ${
+        shippingAddress.email
+      }\nTotal Price: ${totalPrice} EGP\n\nOrder Details:\n- Items: ${products
+        .map((item) => `${item.name} (x${item.quantity})`)
+        .join(", ")}\n\nPlease process this order as soon as possible.`,
+    };
+
+    // Send both emails asynchronously
+    await Promise.all([
+      transporter.sendMail(customerMailOptions),
+      transporter.sendMail(adminMailOptions),
+    ]);
+
+    console.log("Confirmation email sent to user and admin.");
 
     // Respond with success message and order details
     res.status(201).json({
-      message: "Order placed successfully and email sent to user.",
+      message: "Order placed successfully, emails sent.",
       order: newOrder,
     });
   } catch (error) {
