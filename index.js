@@ -309,21 +309,34 @@ app.delete("/addresses/:userId/:addressId", async (req, res) => {
   const { userId, addressId } = req.params;
 
   try {
-    console.log("Deleting address with ID:", addressId, "for user:", userId);
+    console.log(
+      "Attempting to delete address with ID:",
+      addressId,
+      "for user:",
+      userId
+    );
 
+    // Find the user by ID and check if the address exists
     const user = await User.findById(userId);
     if (!user) {
       console.log("User not found");
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Filter out the specific address to delete
-    const updatedAddresses = user.savedAddresses.filter(
-      (address) => address._id.toString() !== addressId
+    // Find the address in user's savedAddresses array
+    const addressExists = user.savedAddresses.some(
+      (address) => address._id.toString() === addressId
     );
 
-    // Update savedAddresses array
-    user.savedAddresses = updatedAddresses;
+    if (!addressExists) {
+      console.log("Address not found for this user");
+      return res.status(404).json({ message: "Address not found" });
+    }
+
+    // Filter out the address to delete and save changes
+    user.savedAddresses = user.savedAddresses.filter(
+      (address) => address._id.toString() !== addressId
+    );
     await user.save();
 
     console.log("Address deleted successfully for user:", userId);
