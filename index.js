@@ -305,26 +305,35 @@ app.get("/addresses/:userId", async (req, res) => {
 });
 
 // DELETE /addresses/:userId - Delete Address
-app.delete("/addresses/:userId", async (req, res) => {
-  try {
-    console.log("Deleting address for user:", req.params.userId);
+app.delete("/addresses/:userId/:addressId", async (req, res) => {
+  const { userId, addressId } = req.params;
 
-    const user = await User.findById(req.params.userId);
+  try {
+    console.log("Deleting address with ID:", addressId, "for user:", userId);
+
+    const user = await User.findById(userId);
     if (!user) {
       console.log("User not found");
       return res.status(404).json({ message: "User not found" });
     }
 
-    user.savedAddresses = null; // Clear addresses
+    // Filter out the specific address to delete
+    const updatedAddresses = user.savedAddresses.filter(
+      (address) => address._id.toString() !== addressId
+    );
+
+    // Update savedAddresses array
+    user.savedAddresses = updatedAddresses;
     await user.save();
 
-    console.log("Address deleted successfully for user:", req.params.userId);
+    console.log("Address deleted successfully for user:", userId);
     res.status(200).json({ message: "Address deleted successfully" });
   } catch (error) {
     console.error("Error deleting address:", error);
     res.status(500).json({ message: "Failed to delete address", error });
   }
 });
+
 // POST /save-for-later/:userId - Save product for later
 app.post("/save-for-later/:userId", async (req, res) => {
   try {
