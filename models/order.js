@@ -31,7 +31,8 @@ const shippingAddressSchema = new mongoose.Schema({
 
 const orderSchema = new mongoose.Schema(
   {
-    orderId: { type: String, required: true, unique: true }, // Unique order identifier
+    orderId: { type: String, required: true, unique: true },
+    user: { type: String, default: "guest" }, // Include user field to store userId or "guest"
     products: [productSchema],
     totalPrice: { type: Number, required: true },
     shippingAddress: { type: shippingAddressSchema, required: true },
