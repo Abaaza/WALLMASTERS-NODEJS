@@ -69,11 +69,15 @@ app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // Find the user by email
     const user = await User.findOne({ email });
+
+    // Check if the user exists and the password matches
     if (!user || user.password !== password) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
+    // Generate a JWT token
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
