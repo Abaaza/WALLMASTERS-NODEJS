@@ -266,22 +266,27 @@ app.post("/change-password", async (req, res) => {
 
 // ------------------ SERVER START ------------------
 
-app.post("/addresses/:userId", async (req, res) => {
+// Order creation route to handle both logged-in users and guests
+app.post("/orders", async (req, res) => {
   try {
-    const { address } = req.body;
-    const user = await User.findById(req.params.userId);
+    const { userId, totalPrice, shippingAddress, products } = req.body;
 
-    if (!user) return res.status(404).json({ message: "User not found" });
+    // If userId is "guest", proceed without linking to a user
+    const newOrder = new Order({
+      userId: userId !== "guest" ? userId : null, // null for guest
+      totalPrice,
+      shippingAddress,
+      products,
+      createdAt: new Date(),
+    });
 
-    // Initialize savedAddresses if it is null or undefined
-    user.savedAddresses = user.savedAddresses || [];
-    user.savedAddresses.push(address);
-    await user.save();
-
-    res.status(200).json({ message: "Address saved successfully" });
+    await newOrder.save();
+    res
+      .status(200)
+      .json({ message: "Order placed successfully", orderId: newOrder._id });
   } catch (error) {
-    console.error("Error saving address:", error);
-    res.status(500).json({ message: "Failed to save address" });
+    console.error("Error placing order:", error);
+    res.status(500).json({ message: "Failed to place order", error });
   }
 });
 
