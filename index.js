@@ -268,19 +268,23 @@ app.post("/change-password", async (req, res) => {
 
 app.post("/addresses/:userId", async (req, res) => {
   try {
-    const { address } = req.body; // Ensure the structure is `{ address: { ... } }`
-    const user = await User.findById(req.params.userId);
+    const { address } = req.body;
+    if (!address || typeof address !== "object") {
+      return res.status(400).json({ message: "Invalid address format." });
+    }
 
+    const user = await User.findById(req.params.userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    // Ensure `savedAddresses` is initialized
     user.savedAddresses = user.savedAddresses || [];
-    user.savedAddresses.push(address); // Add address to `savedAddresses`
+    user.savedAddresses.push(address); // Add new address
     await user.save();
 
-    res.status(200).json({ message: "Address saved successfully" });
+    res.status(201).json({ message: "Address saved successfully" });
   } catch (error) {
     console.error("Error saving address:", error);
-    res.status(500).json({ message: "Failed to save address" });
+    res.status(500).json({ message: "Failed to save address", error });
   }
 });
 
