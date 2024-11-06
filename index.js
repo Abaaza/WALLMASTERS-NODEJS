@@ -146,25 +146,35 @@ app.post("/change-password", async (req, res) => {
   try {
     const { email, oldPassword, newPassword } = req.body;
 
-    // Retrieve the user by email
+    // Log the received email and passwords for validation
+    console.log("Received email:", email);
+    console.log("Received old password:", oldPassword);
+    console.log("Received new password:", newPassword);
+
+    if (!email || !oldPassword || !newPassword) {
+      console.error("Validation error: Missing fields in the request body.");
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
     const user = await User.findOne({ email });
     if (!user) {
+      console.error("User not found for email:", email);
       return res.status(400).json({ message: "User not found" });
     }
 
-    // Log the stored password and the provided old password for debugging
-    console.log("Stored password:", user.password);
-    console.log("Provided old password:", oldPassword);
+    console.log("Stored password for user:", user.password);
 
     // Check if the provided old password matches the stored password
     if (user.password !== oldPassword) {
+      console.error("Incorrect old password provided.");
       return res.status(400).json({ message: "Incorrect old password" });
     }
 
-    // Update the user's password if old password matches
+    // Update the password
     user.password = newPassword;
     await user.save();
 
+    console.log("Password updated successfully for user:", email);
     res.status(200).json({ message: "Password changed successfully" });
   } catch (error) {
     console.error("Error changing password:", error);
