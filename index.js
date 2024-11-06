@@ -421,6 +421,29 @@ app.delete("/saved-items/:userId/:productId", async (req, res) => {
   }
 });
 
+app.post("/send-email", (req, res) => {
+  const { name, email, comment } = req.body;
+
+  const mailOptions = {
+    from: email,
+    to: process.env.EMAIL_USER, // Send to your own email
+    subject: `New Contact Form Submission from ${name}`,
+    text: `You have a new message from your contact form:
+    
+Name: ${name}
+Email: ${email}
+Comment: ${comment}`,
+  };
+
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.error("Error sending email:", error);
+      return res.status(500).json({ message: "Email sending failed" });
+    }
+    res.status(200).json({ message: "Email sent successfully!" });
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
