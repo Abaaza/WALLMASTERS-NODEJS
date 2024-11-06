@@ -146,11 +146,22 @@ app.post("/change-password", async (req, res) => {
   try {
     const { email, oldPassword, newPassword } = req.body;
 
+    // Retrieve the user by email
     const user = await User.findOne({ email });
-    if (!user || user.password !== oldPassword) {
+    if (!user) {
+      return res.status(400).json({ message: "User not found" });
+    }
+
+    // Log the stored password and the provided old password for debugging
+    console.log("Stored password:", user.password);
+    console.log("Provided old password:", oldPassword);
+
+    // Check if the provided old password matches the stored password
+    if (user.password !== oldPassword) {
       return res.status(400).json({ message: "Incorrect old password" });
     }
 
+    // Update the user's password if old password matches
     user.password = newPassword;
     await user.save();
 
