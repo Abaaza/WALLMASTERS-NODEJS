@@ -425,21 +425,25 @@ app.post("/send-email", (req, res) => {
   const { name, email, comment } = req.body;
 
   const mailOptions = {
-    from: email,
-    to: process.env.EMAIL_USER, // Send to your own email
+    from: `"Wall Masters" <${process.env.EMAIL_USER}>`, // Use verified sender email
+    to: process.env.EMAIL_USER,
     subject: `New Contact Form Submission from ${name}`,
     text: `You have a new message from your contact form:
     
-Name: ${name}
-Email: ${email}
-Comment: ${comment}`,
+  Name: ${name}
+  Email: ${email}
+  Comment: ${comment}`,
   };
 
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) {
       console.error("Error sending email:", error);
-      return res.status(500).json({ message: "Email sending failed" });
+      return res.status(500).json({
+        message: "Email sending failed",
+        error: error.toString(), // Return error details
+      });
     }
+    console.log("Email sent:", info.response);
     res.status(200).json({ message: "Email sent successfully!" });
   });
 });
