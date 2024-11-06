@@ -469,6 +469,21 @@ app.post("/send-email", (req, res) => {
   });
 });
 
+// Backend route to get user details
+app.get("/user/details", authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Return essential user details
+    res.json({ userId: user._id, name: user.name, email: user.email });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to retrieve user details" });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
