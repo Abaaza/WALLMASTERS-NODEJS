@@ -498,33 +498,32 @@ app.get("/user/details", authenticate, async (req, res) => {
 
 app.post("/request-password-reset", async (req, res) => {
   const { email } = req.body;
-
   try {
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: "User not found." });
     }
 
-    // Generate a temporary reset token (example: using crypto)
+    // Generate reset token and expiration
     const resetToken = crypto.randomBytes(32).toString("hex");
-
-    // Save the token to the user object (or a separate database collection)
     user.resetToken = resetToken;
-    user.resetTokenExpiration = Date.now() + 3600000; // 1 hour expiration
+    user.resetTokenExpiration = Date.now() + 3600000; // Token expires in 1 hour
     await user.save();
 
-    // Send email with reset link (replace URL with actual frontend reset route)
+    // Send reset email
     const resetLink = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
     await transporter.sendMail({
       to: email,
       subject: "Password Reset",
-      text: `Click the link to reset your password: ${resetLink}`,
+      text: `Please use the following link to reset your password: ${resetLink}`,
     });
 
-    res.status(200).json({ message: "Password reset link sent." });
+    res
+      .status(200)
+      .json({ message: "Password reset link sent to your email." });
   } catch (error) {
     console.error("Error sending password reset email:", error);
-    res.status(500).json({ message: "Failed to send password reset link." });
+    res.status(500).json({ message: "Failed to send password reset email." });
   }
 });
 
