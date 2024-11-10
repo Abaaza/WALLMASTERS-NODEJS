@@ -7,6 +7,7 @@ console.log("CONNECTION_STRING:", process.env.CONNECTION_STRING);
 console.log("JWT_SECRET:", process.env.JWT_SECRET);
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
+const crypto = require("crypto");
 
 const User = require("./models/user");
 const Order = require("./models/order");
@@ -492,6 +493,38 @@ app.get("/user/details", authenticate, async (req, res) => {
     res.json({ userId: user._id, name: user.name, email: user.email });
   } catch (error) {
     res.status(500).json({ message: "Failed to retrieve user details" });
+  }
+});
+
+app.post("/request-password-reset", async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // Generate a temporary reset token (example: using crypto)
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    // Save the token to the user object (or a separate database collection)
+    user.resetToken = resetToken;
+    user.resetTokenExpiration = Date.now() + 3600000; // 1 hour expiration
+    await user.save();
+
+    // Send email with reset link (replace URL with actual frontend reset route)
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+    await transporter.sendMail({
+      to: email,
+      subject: "Password Reset",
+      text: `Click the link to reset your password: ${resetLink}`,
+    });
+
+    res.status(200).json({ message: "Password reset link sent." });
+  } catch (error) {
+    console.error("Error sending password reset email:", error);
+    res.status(500).json({ message: "Failed to send password reset link." });
   }
 });
 
