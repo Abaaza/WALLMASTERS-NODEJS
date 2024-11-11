@@ -498,26 +498,45 @@ app.get("/user/details", authenticate, async (req, res) => {
 
 app.post("/request-password-reset", async (req, res) => {
   const { email } = req.body;
+  console.log("Received password reset request for email:", email);
+
   try {
+    // Step 1: Check if user exists
     const user = await User.findOne({ email });
     if (!user) {
+      console.log("User not found for email:", email);
       return res.status(404).json({ message: "User not found." });
     }
+    console.log("User found for email:", email);
 
-    // Generate reset token and expiration
+    // Step 2: Generate reset token and expiration
     const resetToken = crypto.randomBytes(32).toString("hex");
     user.resetToken = resetToken;
     user.resetTokenExpiration = Date.now() + 3600000; // Token expires in 1 hour
-    await user.save();
+    console.log("Generated reset token:", resetToken);
+    console.log(
+      "Token expiration set to:",
+      new Date(user.resetTokenExpiration).toLocaleString()
+    );
 
-    // Send reset email
+    // Save the token and expiration to the user's document in the database
+    await user.save();
+    console.log("Reset token and expiration saved to user profile for:", email);
+
+    // Step 3: Construct reset link
     const resetLink = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+    console.log("Reset link generated:", resetLink);
+
+    // Step 4: Send reset email
+    console.log("Attempting to send password reset email to:", email);
     await transporter.sendMail({
       to: email,
       subject: "Password Reset",
       text: `Please use the following link to reset your password: ${resetLink}`,
     });
+    console.log("Password reset email sent successfully to:", email);
 
+    // Step 5: Respond to the client
     res
       .status(200)
       .json({ message: "Password reset link sent to your email." });
