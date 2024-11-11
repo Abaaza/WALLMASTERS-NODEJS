@@ -530,9 +530,11 @@ app.post("/request-password-reset", async (req, res) => {
     // Step 4: Send reset email
     console.log("Attempting to send password reset email to:", email);
     await transporter.sendMail({
+      from: `"Wall Masters" <no-reply@wall-masters.com>`,
       to: email,
       subject: "Password Reset",
       text: `Please use the following link to reset your password: ${resetLink}`,
+      html: `<p>Please use the following link to reset your password:</p><p><a href="${resetLink}">${resetLink}</a></p>`,
     });
     console.log("Password reset email sent successfully to:", email);
 
