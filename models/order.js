@@ -14,7 +14,7 @@ const shippingAddressSchema = new mongoose.Schema({
   houseNo: { type: String, required: true },
   street: { type: String, required: true },
   city: { type: String, required: true },
-  postalCode: { type: String, required: true },
+  postalCode: { type: String, required: false },
   mobileNo: { type: String, required: true },
   name: { type: String, required: true },
   email: {

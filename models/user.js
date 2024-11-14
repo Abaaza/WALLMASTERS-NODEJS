@@ -12,7 +12,7 @@ const userSchema = new mongoose.Schema({
       houseNo: String,
       street: String,
       city: String,
-      postalCode: String,
+      postalCode: String || null,
     },
   ],
   savedItems: [
