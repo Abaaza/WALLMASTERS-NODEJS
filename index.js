@@ -399,6 +399,28 @@ app.post("/addresses/:userId/default", async (req, res) => {
     res.status(500).json({ message: "Failed to set default address", error });
   }
 });
+// PUT /addresses/:userId/default/:addressId - Set Default Address
+app.put("/addresses/:userId/default/:addressId", async (req, res) => {
+  try {
+    const { userId, addressId } = req.params;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Update the default address
+    user.savedAddresses.forEach((address) => {
+      address.isDefault = address._id.toString() === addressId;
+    });
+
+    await user.save();
+    res.status(200).json({ message: "Default address updated successfully" });
+  } catch (error) {
+    console.error("Error setting default address:", error);
+    res.status(500).json({ message: "Failed to set default address", error });
+  }
+});
 
 // POST /save-for-later/:userId - Save product for later
 app.post("/save-for-later/:userId", async (req, res) => {
