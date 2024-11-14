@@ -12,7 +12,8 @@ const userSchema = new mongoose.Schema({
       houseNo: String,
       street: String,
       city: String,
-      postalCode: String || null,
+      postalCode: { type: String, default: null },
+      isDefault: { type: Boolean, default: false }, // New field to mark as default
     },
   ],
   savedItems: [
