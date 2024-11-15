@@ -602,11 +602,6 @@ app.post("/request-password-reset", async (req, res) => {
   }
 });
 
-const express = require("express");
-const app = express();
-const mongoose = require("mongoose");
-const User = require("./models/User"); // Adjust path as necessary
-
 // GET /users/:userId - Retrieve User by ID
 app.get("/users/:userId", async (req, res) => {
   try {
