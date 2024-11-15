@@ -402,6 +402,7 @@ app.post("/addresses/:userId/default", async (req, res) => {
   }
 });
 // PUT /addresses/:userId/default/:addressId - Set Default Address
+// PUT /addresses/:userId/default/:addressId - Set Default Address
 app.put("/addresses/:userId/default/:addressId", async (req, res) => {
   try {
     const { userId, addressId } = req.params;
