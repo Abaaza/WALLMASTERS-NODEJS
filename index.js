@@ -309,12 +309,14 @@ app.post("/addresses/:userId", async (req, res) => {
     const user = await User.findById(req.params.userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Ensure `savedAddresses` is initialized
     user.savedAddresses = user.savedAddresses || [];
-    user.savedAddresses.push(address); // Add new address
+    user.savedAddresses.push(address);
     await user.save();
 
-    res.status(201).json({ message: "Address saved successfully" });
+    res.status(201).json({
+      message: "Address saved successfully",
+      savedAddresses: user.savedAddresses,
+    });
   } catch (error) {
     console.error("Error saving address:", error);
     res.status(500).json({ message: "Failed to save address", error });
