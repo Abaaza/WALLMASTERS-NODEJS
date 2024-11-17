@@ -636,6 +636,23 @@ app.get("/users/:userId", async (req, res) => {
   }
 });
 
+// Verify session endpoint
+app.get("/auth/verify-session", (req, res) => {
+  const token = req.headers.authorization?.split(" ")[1]; // Extract token from Authorization header
+
+  if (!token) {
+    return res.status(401).json({ message: "Token missing" });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ message: "Invalid or expired token" });
+    }
+    // If verification is successful, return success status
+    res.status(200).json({ message: "Token is valid" });
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
