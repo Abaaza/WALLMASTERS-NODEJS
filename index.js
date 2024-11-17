@@ -322,7 +322,8 @@ app.post("/addresses/:userId", async (req, res) => {
     );
 
     if (isDuplicate) {
-      return res.status(400).json({ message: "Duplicate address found" });
+      // Use a 409 Conflict status code for duplicate addresses
+      return res.status(409).json({ message: "Duplicate address found" });
     }
 
     // Add the address if it’s not a duplicate
