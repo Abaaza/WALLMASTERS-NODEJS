@@ -309,7 +309,23 @@ app.post("/addresses/:userId", async (req, res) => {
     const user = await User.findById(req.params.userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    // Initialize savedAddresses if undefined
     user.savedAddresses = user.savedAddresses || [];
+
+    // Check if the address is already saved by comparing key fields
+    const isDuplicate = user.savedAddresses.some(
+      (savedAddress) =>
+        savedAddress.houseNo === address.houseNo &&
+        savedAddress.street === address.street &&
+        savedAddress.city === address.city &&
+        savedAddress.postalCode === address.postalCode
+    );
+
+    if (isDuplicate) {
+      return res.status(400).json({ message: "Duplicate address found" });
+    }
+
+    // Add the address if it’s not a duplicate
     user.savedAddresses.push(address);
     await user.save();
 
