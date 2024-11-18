@@ -572,34 +572,26 @@ app.post("/request-password-reset", async (req, res) => {
   console.log("Received password reset request for email:", email);
 
   try {
-    // Step 1: Check if user exists
     const user = await User.findOne({ email });
     if (!user) {
       console.log("User not found for email:", email);
       return res.status(404).json({ message: "User not found." });
     }
-    console.log("User found for email:", email);
 
-    // Step 2: Generate reset token and expiration
     const resetToken = crypto.randomBytes(32).toString("hex");
     user.resetToken = resetToken;
-    user.resetTokenExpiration = Date.now() + 3600000; // Token expires in 1 hour
-    console.log("Generated reset token:", resetToken);
+    user.resetTokenExpiration = Date.now() + 3600000; // Expires in 1 hour
+
+    await user.save();
+
+    // Log the values saved in the database
+    console.log("Saved reset token:", user.resetToken);
     console.log(
-      "Token expiration set to:",
+      "Token expiration:",
       new Date(user.resetTokenExpiration).toLocaleString()
     );
 
-    // Save the token and expiration to the user's document in the database
-    await user.save();
-    console.log("Reset token and expiration saved to user profile for:", email);
-
-    // Step 3: Construct reset link
     const resetLink = `https://www.wall-masters.com/reset-password/${resetToken}`;
-    console.log("Reset link generated:", resetLink);
-    console.log;
-    // Step 4: Send reset email
-    console.log("Attempting to send password reset email to:", email);
     await transporter.sendMail({
       from: `"Wall Masters" <info@wall-masters.com>`,
       to: email,
@@ -607,9 +599,7 @@ app.post("/request-password-reset", async (req, res) => {
       text: `Please use the following link to reset your password: ${resetLink}`,
       html: `<p>Please use the following link to reset your password:</p><p><a href="${resetLink}">${resetLink}</a></p>`,
     });
-    console.log("Password reset email sent successfully to:", email);
 
-    // Step 5: Respond to the client
     res
       .status(200)
       .json({ message: "Password reset link sent to your email." });
@@ -622,22 +612,24 @@ app.post("/request-password-reset", async (req, res) => {
 app.post("/reset-password", async (req, res) => {
   const { token, password } = req.body;
   console.log("Received reset token:", token);
+  console.log("Received password length:", password.length);
 
   try {
     const user = await User.findOne({
       resetToken: token,
-      resetTokenExpiration: { $gt: Date.now() }, // Ensure token is not expired
+      resetTokenExpiration: { $gt: Date.now() }, // Check if token is still valid
     });
 
+    // Log the token and expiration from the user document, if found
     if (!user) {
       console.error("Invalid or expired token. Token in DB may not match.");
       return res.status(400).json({ message: "Invalid or expired token" });
     }
+    console.log("Token from DB:", user.resetToken);
+    console.log("Token expiration:", user.resetTokenExpiration);
 
-    console.log("Matching token found in database");
-
-    // Update password and clear token fields
-    user.password = password; // Ideally hash this password in production
+    // If token matches, proceed to reset the password
+    user.password = password; // For production, ensure this is hashed
     user.resetToken = undefined;
     user.resetTokenExpiration = undefined;
     await user.save();
