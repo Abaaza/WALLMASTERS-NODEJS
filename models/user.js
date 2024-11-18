@@ -27,6 +27,9 @@ const userSchema = new mongoose.Schema({
       image: String,
     },
   ],
+  // Add reset token and expiration fields for password reset functionality
+  resetToken: { type: String, default: null },
+  resetTokenExpiration: { type: Date, default: null },
 });
 
 module.exports = mongoose.model("User", userSchema);
