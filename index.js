@@ -621,24 +621,22 @@ app.post("/request-password-reset", async (req, res) => {
 
 app.post("/reset-password", async (req, res) => {
   const { token, password } = req.body;
-
-  // Log received token and password (avoid logging sensitive information in production)
   console.log("Received reset token:", token);
   console.log("Received password length:", password.length);
 
   try {
     const user = await User.findOne({
       resetToken: token,
-      resetTokenExpiration: { $gt: Date.now() }, // Check if token is still valid
+      resetTokenExpiration: { $gt: Date.now() }, // Ensure token has not expired
     });
 
     if (!user) {
-      console.log("Invalid or expired token");
+      console.error("Invalid or expired token");
       return res.status(400).json({ message: "Invalid or expired token" });
     }
 
-    // Update the user's password and clear the reset token fields
-    user.password = password; // Hash this password in production!
+    // Update password and clear the reset token fields
+    user.password = password; // Hash in production
     user.resetToken = undefined;
     user.resetTokenExpiration = undefined;
     await user.save();
