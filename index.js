@@ -622,6 +622,10 @@ app.post("/request-password-reset", async (req, res) => {
 app.post("/reset-password", async (req, res) => {
   const { token, password } = req.body;
 
+  // Log received token and password (avoid logging sensitive information in production)
+  console.log("Received reset token:", token);
+  console.log("Received password length:", password.length);
+
   try {
     const user = await User.findOne({
       resetToken: token,
@@ -629,6 +633,7 @@ app.post("/reset-password", async (req, res) => {
     });
 
     if (!user) {
+      console.log("Invalid or expired token");
       return res.status(400).json({ message: "Invalid or expired token" });
     }
 
