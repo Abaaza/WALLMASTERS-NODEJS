@@ -620,16 +620,18 @@ app.post("/reset-password", async (req, res) => {
       resetTokenExpiration: { $gt: Date.now() }, // Check if token is still valid
     });
 
-    // Log the token and expiration from the user document, if found
     if (!user) {
       console.error("Invalid or expired token. Token in DB may not match.");
       return res.status(400).json({ message: "Invalid or expired token" });
     }
     console.log("Token from DB:", user.resetToken);
-    console.log("Token expiration:", user.resetTokenExpiration);
+    console.log(
+      "Token expiration:",
+      new Date(user.resetTokenExpiration).toISOString()
+    );
 
-    // If token matches, proceed to reset the password
-    user.password = password; // For production, ensure this is hashed
+    // Proceed to reset password if token is valid
+    user.password = password; // Ensure hashing in production
     user.resetToken = undefined;
     user.resetTokenExpiration = undefined;
     await user.save();
