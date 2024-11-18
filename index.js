@@ -622,21 +622,22 @@ app.post("/request-password-reset", async (req, res) => {
 app.post("/reset-password", async (req, res) => {
   const { token, password } = req.body;
   console.log("Received reset token:", token);
-  console.log("Received password length:", password.length);
 
   try {
     const user = await User.findOne({
       resetToken: token,
-      resetTokenExpiration: { $gt: Date.now() }, // Ensure token has not expired
+      resetTokenExpiration: { $gt: Date.now() }, // Ensure token is not expired
     });
 
     if (!user) {
-      console.error("Invalid or expired token");
+      console.error("Invalid or expired token. Token in DB may not match.");
       return res.status(400).json({ message: "Invalid or expired token" });
     }
 
-    // Update password and clear the reset token fields
-    user.password = password; // Hash in production
+    console.log("Matching token found in database");
+
+    // Update password and clear token fields
+    user.password = password; // Ideally hash this password in production
     user.resetToken = undefined;
     user.resetTokenExpiration = undefined;
     await user.save();
