@@ -595,9 +595,9 @@ app.post("/request-password-reset", async (req, res) => {
     console.log("Reset token and expiration saved to user profile for:", email);
 
     // Step 3: Construct reset link
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+    const resetLink = `https://www.wall-masters.com/reset-password/${resetToken}`;
     console.log("Reset link generated:", resetLink);
-
+    console.log;
     // Step 4: Send reset email
     console.log("Attempting to send password reset email to:", email);
     await transporter.sendMail({
@@ -616,6 +616,32 @@ app.post("/request-password-reset", async (req, res) => {
   } catch (error) {
     console.error("Error sending password reset email:", error);
     res.status(500).json({ message: "Failed to send password reset email." });
+  }
+});
+
+app.post("/reset-password", async (req, res) => {
+  const { token, password } = req.body;
+
+  try {
+    const user = await User.findOne({
+      resetToken: token,
+      resetTokenExpiration: { $gt: Date.now() }, // Check if token is still valid
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    // Update the user's password and clear the reset token fields
+    user.password = password; // Hash this password in production!
+    user.resetToken = undefined;
+    user.resetTokenExpiration = undefined;
+    await user.save();
+
+    res.status(200).json({ message: "Password has been reset successfully" });
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    res.status(500).json({ message: "Failed to reset password" });
   }
 });
 
