@@ -363,62 +363,67 @@ app.get("/addresses/:userId", async (req, res) => {
 app.delete("/addresses/:userId/:addressId", async (req, res) => {
   try {
     const { userId, addressId } = req.params;
-    console.log(
-      "Attempting to delete address with ID:",
-      addressId,
-      "for user:",
-      userId
-    );
-
-    // Use $pull to remove the address from the savedAddresses array based on addressId
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { $pull: { savedAddresses: { _id: addressId } } },
-      { new: true }
-    );
-
-    if (!user) {
-      console.log("User not found");
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    console.log("Address deleted successfully:", addressId);
-    res.status(200).json({ message: "Address deleted successfully" });
-  } catch (error) {
-    console.error("Error deleting address:", error);
-    res.status(500).json({ message: "Failed to delete address", error });
-  }
-});
-
-// POST /addresses/:userId/default - Set Default Address
-app.post("/addresses/:userId/default", async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { addressId } = req.body;
 
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const address = user.savedAddresses.find(
-      (address) => address._id.toString() === addressId
+    // Remove the specified address
+    user.savedAddresses = user.savedAddresses.filter(
+      (address) => address._id.toString() !== addressId
     );
 
-    if (!address) {
-      return res.status(404).json({ message: "Address not found" });
+    // If only one address remains, set it as the default
+    if (user.savedAddresses.length === 1) {
+      user.savedAddresses[0].isDefault = true;
+    } else if (user.savedAddresses.length > 1) {
+      // Ensure no other address remains marked as default if more than one address is left
+      user.savedAddresses.forEach((address) => {
+        address.isDefault = false;
+      });
     }
 
-    user.defaultAddress = addressId; // Set the default address ID
     await user.save();
-
-    res.status(200).json({ message: "Default address set successfully" });
+    res.status(200).json({
+      message: "Address deleted successfully",
+      savedAddresses: user.savedAddresses,
+    });
   } catch (error) {
-    console.error("Error setting default address:", error);
-    res.status(500).json({ message: "Failed to set default address", error });
+    console.error("Error deleting address:", error);
+    res.status(500).json({ message: "Failed to delete address", error });
   }
 });
-// PUT /addresses/:userId/default/:addressId - Set Default Address
+// POST /addresses/:userId/default - Set Default Address
+app.post("/addresses/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const newAddress = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Add the new address to the user's saved addresses
+    user.savedAddresses.push(newAddress);
+
+    // Check if this is the only address; if so, set it as default
+    if (user.savedAddresses.length === 1) {
+      user.savedAddresses[0].isDefault = true;
+    }
+
+    await user.save();
+    res.status(201).json({
+      message: "Address added successfully",
+      savedAddresses: user.savedAddresses,
+    });
+  } catch (error) {
+    console.error("Error adding address:", error);
+    res.status(500).json({ message: "Failed to add address", error });
+  }
+});
+
 // PUT /addresses/:userId/default/:addressId - Set Default Address
 app.put("/addresses/:userId/default/:addressId", async (req, res) => {
   try {
