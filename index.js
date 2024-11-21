@@ -121,7 +121,7 @@ app.get("/products", async (req, res) => {
 
 // ------------------ SERVER ------------------
 
-// Register Route
+// Register Route// Backend: register route
 app.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -140,8 +140,12 @@ app.post("/register", async (req, res) => {
 
     res.status(201).json({
       message: "User registered successfully",
-      user: { name: user.name, email: user.email },
       token,
+      user: {
+        _id: user._id, // Include the user ID here
+        name: user.name,
+        email: user.email,
+      },
     });
   } catch (error) {
     console.error("User registration error:", error);
