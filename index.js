@@ -354,10 +354,10 @@ app.delete("/addresses/:userId/:addressId", async (req, res) => {
   }
 });
 
-// Helper function to normalize strings
+// Helper function to normalize strings// Helper to normalize strings
 const normalizeString = (str) => (str || "").trim().toLowerCase();
 
-// Function to check for duplicate addresses
+// Function to check if an address is a duplicate
 const isDuplicateAddress = (existingAddress, newAddress) => {
   return (
     normalizeString(existingAddress.name) ===
@@ -379,7 +379,6 @@ const isDuplicateAddress = (existingAddress, newAddress) => {
   );
 };
 
-// Updated POST route for saving addresses
 app.post("/addresses/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -396,20 +395,16 @@ app.post("/addresses/:userId", async (req, res) => {
 
     user.savedAddresses = user.savedAddresses || [];
 
-    // Log the new address for debugging
     console.log("New Address:", newAddress);
 
     // Check for duplicates
     const duplicate = user.savedAddresses.find((savedAddress) => {
       console.log("Comparing with:", savedAddress);
-      const isDuplicate = isDuplicateAddress(savedAddress, newAddress);
-      if (isDuplicate) {
-        console.log("Duplicate found:", savedAddress);
-      }
-      return isDuplicate;
+      return isDuplicateAddress(savedAddress, newAddress);
     });
 
     if (duplicate) {
+      console.log("Duplicate detected:", duplicate);
       return res.status(409).json({
         message: "Duplicate address found.",
         savedAddresses: user.savedAddresses,
@@ -420,7 +415,7 @@ app.post("/addresses/:userId", async (req, res) => {
     user.savedAddresses.push(newAddress);
     await user.save();
 
-    return res.status(201).json({
+    res.status(201).json({
       message: "Address saved successfully.",
       savedAddresses: user.savedAddresses,
     });
