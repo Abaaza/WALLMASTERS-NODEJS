@@ -354,30 +354,39 @@ app.delete("/addresses/:userId/:addressId", async (req, res) => {
   }
 });
 
-// Helper function to normalize strings// Helper to normalize strings
-const normalizeString = (str) => (str || "").trim().toLowerCase();
+userSchema.pre("save", function (next) {
+  // `this` refers to the user document being saved
+  const addresses = this.savedAddresses;
 
-// Function to check if an address is a duplicate
-const isDuplicateAddress = (existingAddress, newAddress) => {
-  return (
-    normalizeString(existingAddress.name) ===
-      normalizeString(newAddress.name) &&
-    normalizeString(existingAddress.email) ===
-      normalizeString(newAddress.email) &&
-    normalizeString(existingAddress.mobileNo) ===
-      normalizeString(newAddress.mobileNo) &&
-    normalizeString(existingAddress.houseNo) ===
-      normalizeString(newAddress.houseNo) &&
-    normalizeString(existingAddress.street) ===
-      normalizeString(newAddress.street) &&
-    normalizeString(existingAddress.city) ===
-      normalizeString(newAddress.city) &&
-    normalizeString(existingAddress.postalCode || "") ===
-      normalizeString(newAddress.postalCode || "") &&
-    normalizeString(existingAddress.country) ===
-      normalizeString(newAddress.country)
-  );
-};
+  // Normalize fields for each address
+  const normalizeString = (str) => (str || "").trim().toLowerCase();
+
+  const seenAddresses = new Set();
+
+  for (const address of addresses) {
+    const addressKey = JSON.stringify({
+      name: normalizeString(address.name),
+      email: normalizeString(address.email),
+      mobileNo: normalizeString(address.mobileNo),
+      houseNo: normalizeString(address.houseNo),
+      street: normalizeString(address.street),
+      city: normalizeString(address.city),
+      postalCode: normalizeString(address.postalCode),
+      country: normalizeString(address.country),
+    });
+
+    if (seenAddresses.has(addressKey)) {
+      // Duplicate found, stop the operation
+      const error = new Error("Duplicate address detected");
+      error.statusCode = 409; // Conflict
+      return next(error);
+    }
+
+    seenAddresses.add(addressKey);
+  }
+
+  next(); // Proceed with saving if no duplicates are found
+});
 
 app.post("/addresses/:userId", async (req, res) => {
   try {
@@ -395,23 +404,33 @@ app.post("/addresses/:userId", async (req, res) => {
 
     user.savedAddresses = user.savedAddresses || [];
 
-    console.log("New Address:", newAddress);
+    const normalizeString = (str) => (str || "").trim().toLowerCase();
 
     // Check for duplicates
     const duplicate = user.savedAddresses.find((savedAddress) => {
-      console.log("Comparing with:", savedAddress);
-      return isDuplicateAddress(savedAddress, newAddress);
+      return (
+        normalizeString(savedAddress.name) ===
+          normalizeString(newAddress.name) &&
+        normalizeString(savedAddress.email) ===
+          normalizeString(newAddress.email) &&
+        normalizeString(savedAddress.mobileNo) ===
+          normalizeString(newAddress.mobileNo) &&
+        normalizeString(savedAddress.houseNo) ===
+          normalizeString(newAddress.houseNo) &&
+        normalizeString(savedAddress.street) ===
+          normalizeString(newAddress.street) &&
+        normalizeString(savedAddress.city) ===
+          normalizeString(newAddress.city) &&
+        normalizeString(savedAddress.postalCode) ===
+          normalizeString(newAddress.postalCode)
+      );
     });
 
     if (duplicate) {
-      console.log("Duplicate detected:", duplicate);
-      return res.status(409).json({
-        message: "Duplicate address found.",
-        savedAddresses: user.savedAddresses,
-      });
+      return res.status(409).json({ message: "Duplicate address detected." });
     }
 
-    // Save the new address if no duplicate is found
+    // Save the new address
     user.savedAddresses.push(newAddress);
     await user.save();
 
