@@ -354,40 +354,6 @@ app.delete("/addresses/:userId/:addressId", async (req, res) => {
   }
 });
 
-userSchema.pre("save", function (next) {
-  // `this` refers to the user document being saved
-  const addresses = this.savedAddresses;
-
-  // Normalize fields for each address
-  const normalizeString = (str) => (str || "").trim().toLowerCase();
-
-  const seenAddresses = new Set();
-
-  for (const address of addresses) {
-    const addressKey = JSON.stringify({
-      name: normalizeString(address.name),
-      email: normalizeString(address.email),
-      mobileNo: normalizeString(address.mobileNo),
-      houseNo: normalizeString(address.houseNo),
-      street: normalizeString(address.street),
-      city: normalizeString(address.city),
-      postalCode: normalizeString(address.postalCode),
-      country: normalizeString(address.country),
-    });
-
-    if (seenAddresses.has(addressKey)) {
-      // Duplicate found, stop the operation
-      const error = new Error("Duplicate address detected");
-      error.statusCode = 409; // Conflict
-      return next(error);
-    }
-
-    seenAddresses.add(addressKey);
-  }
-
-  next(); // Proceed with saving if no duplicates are found
-});
-
 app.post("/addresses/:userId", async (req, res) => {
   try {
     const { userId } = req.params;

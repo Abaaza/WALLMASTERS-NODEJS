@@ -15,9 +15,10 @@ const userSchema = new mongoose.Schema({
         city: String,
         postalCode: { type: String, default: null },
         isDefault: { type: Boolean, default: false },
+        country: String,
       },
     ],
-    default: [], // Initialize as an empty array
+    default: [],
   },
   savedItems: [
     {
@@ -27,9 +28,41 @@ const userSchema = new mongoose.Schema({
       image: String,
     },
   ],
-  // Add reset token and expiration fields for password reset functionality
   resetToken: { type: String, default: null },
   resetTokenExpiration: { type: Date, default: null },
+});
+
+// Add pre-save hook for duplicate address validation
+userSchema.pre("save", function (next) {
+  const addresses = this.savedAddresses;
+
+  // Normalize fields for each address
+  const normalizeString = (str) => (str || "").trim().toLowerCase();
+
+  const seenAddresses = new Set();
+
+  for (const address of addresses) {
+    const addressKey = JSON.stringify({
+      name: normalizeString(address.name),
+      email: normalizeString(address.email),
+      mobileNo: normalizeString(address.mobileNo),
+      houseNo: normalizeString(address.houseNo),
+      street: normalizeString(address.street),
+      city: normalizeString(address.city),
+      postalCode: normalizeString(address.postalCode),
+      country: normalizeString(address.country),
+    });
+
+    if (seenAddresses.has(addressKey)) {
+      const error = new Error("Duplicate address detected");
+      error.statusCode = 409; // Conflict
+      return next(error);
+    }
+
+    seenAddresses.add(addressKey);
+  }
+
+  next();
 });
 
 module.exports = mongoose.model("User", userSchema);
