@@ -301,42 +301,47 @@ app.post("/change-password", async (req, res) => {
 
 app.post("/addresses/:userId", async (req, res) => {
   try {
-    const { address } = req.body;
-    if (!address || typeof address !== "object") {
+    const { userId } = req.params;
+    const newAddress = req.body;
+
+    if (!newAddress || typeof newAddress !== "object") {
       return res.status(400).json({ message: "Invalid address format." });
     }
 
-    const user = await User.findById(req.params.userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found." });
 
     // Initialize savedAddresses if undefined
     user.savedAddresses = user.savedAddresses || [];
 
-    // Check if the address is already saved by comparing key fields
-    const isDuplicate = user.savedAddresses.some(
-      (savedAddress) =>
-        savedAddress.houseNo === address.houseNo &&
-        savedAddress.street === address.street &&
-        savedAddress.city === address.city &&
-        savedAddress.postalCode === address.postalCode
-    );
+    // Check for duplicate addresses
+    const duplicate = user.savedAddresses.find((savedAddress) => {
+      return (
+        savedAddress.houseNo === newAddress.houseNo &&
+        savedAddress.street === newAddress.street &&
+        savedAddress.city === newAddress.city &&
+        savedAddress.postalCode === newAddress.postalCode
+      );
+    });
 
-    if (isDuplicate) {
-      // Use a 409 Conflict status code for duplicate addresses
-      return res.status(409).json({ message: "Duplicate address found" });
+    if (duplicate) {
+      return res.status(200).json({
+        message: "Address already exists.",
+        savedAddresses: user.savedAddresses,
+      });
     }
 
-    // Add the address if it’s not a duplicate
-    user.savedAddresses.push(address);
+    // Add the new address
+    user.savedAddresses.push(newAddress);
     await user.save();
 
-    res.status(201).json({
-      message: "Address saved successfully",
+    return res.status(201).json({
+      message: "Address saved successfully.",
       savedAddresses: user.savedAddresses,
     });
   } catch (error) {
     console.error("Error saving address:", error);
-    res.status(500).json({ message: "Failed to save address", error });
+    res.status(500).json({ message: "Failed to save address.", error });
   }
 });
 
