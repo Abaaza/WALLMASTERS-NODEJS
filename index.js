@@ -354,8 +354,10 @@ app.delete("/addresses/:userId/:addressId", async (req, res) => {
   }
 });
 
+// Helper function to normalize strings
 const normalizeString = (str) => (str || "").trim().toLowerCase();
 
+// Function to check for duplicate addresses
 const isDuplicateAddress = (existingAddress, newAddress) => {
   return (
     normalizeString(existingAddress.name) ===
@@ -377,6 +379,7 @@ const isDuplicateAddress = (existingAddress, newAddress) => {
   );
 };
 
+// Updated POST route for saving addresses
 app.post("/addresses/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -393,10 +396,10 @@ app.post("/addresses/:userId", async (req, res) => {
 
     user.savedAddresses = user.savedAddresses || [];
 
-    // Log debugging information
+    // Log the new address for debugging
     console.log("New Address:", newAddress);
 
-    // Check for duplicate addresses
+    // Check for duplicates
     const duplicate = user.savedAddresses.find((savedAddress) => {
       console.log("Comparing with:", savedAddress);
       const isDuplicate = isDuplicateAddress(savedAddress, newAddress);
@@ -413,7 +416,7 @@ app.post("/addresses/:userId", async (req, res) => {
       });
     }
 
-    // Save the new address
+    // Save the new address if no duplicate is found
     user.savedAddresses.push(newAddress);
     await user.save();
 
