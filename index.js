@@ -121,7 +121,7 @@ app.get("/products", async (req, res) => {
 
 // ------------------ SERVER ------------------
 
-// Register Route
+// Register Route// Backend: register route
 app.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -140,8 +140,12 @@ app.post("/register", async (req, res) => {
 
     res.status(201).json({
       message: "User registered successfully",
-      user: { name: user.name, email: user.email },
       token,
+      user: {
+        _id: user._id, // Include the user ID here
+        name: user.name,
+        email: user.email,
+      },
     });
   } catch (error) {
     console.error("User registration error:", error);
@@ -466,6 +470,39 @@ app.put("/addresses/:userId/default/:addressId", async (req, res) => {
   } catch (error) {
     console.error("Error setting default address:", error);
     res.status(500).json({ message: "Failed to set default address", error });
+  }
+});
+
+// POST /save-for-later/:userId - Save product for later
+app.post("/save-for-later/:userId", async (req, res) => {
+  try {
+    const { product } = req.body; // Expect the product object
+    const userId = req.params.userId;
+
+    if (!product || !product.productId) {
+      return res.status(400).json({ message: "Invalid Product Data" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found." });
+
+    // Check if the product is already saved
+    const isAlreadySaved = user.savedItems.some(
+      (item) => item.productId === product.productId
+    );
+
+    if (isAlreadySaved) {
+      return res.status(400).json({ message: "Product already saved." });
+    }
+
+    // Add the product to the saved items
+    user.savedItems.push(product);
+
+    await user.save();
+    res.status(200).json({ message: "Product saved for later." });
+  } catch (error) {
+    console.error("Error saving product:", error);
+    res.status(500).json({ message: "Failed to save product for later." });
   }
 });
 
