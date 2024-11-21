@@ -387,14 +387,24 @@ app.post("/addresses/:userId", async (req, res) => {
     }
 
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found." });
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
 
     user.savedAddresses = user.savedAddresses || [];
 
+    // Log debugging information
+    console.log("New Address:", newAddress);
+
     // Check for duplicate addresses
-    const duplicate = user.savedAddresses.find((savedAddress) =>
-      isDuplicateAddress(savedAddress, newAddress)
-    );
+    const duplicate = user.savedAddresses.find((savedAddress) => {
+      console.log("Comparing with:", savedAddress);
+      const isDuplicate = isDuplicateAddress(savedAddress, newAddress);
+      if (isDuplicate) {
+        console.log("Duplicate found:", savedAddress);
+      }
+      return isDuplicate;
+    });
 
     if (duplicate) {
       return res.status(409).json({
