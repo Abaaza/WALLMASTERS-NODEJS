@@ -483,8 +483,15 @@ app.post("/save-for-later/:userId", async (req, res) => {
       return res.status(400).json({ message: "Invalid Product Data" });
     }
 
+    // Ensure the product contains images
+    if (!Array.isArray(product.images) || product.images.length === 0) {
+      return res.status(400).json({ message: "Product must include images." });
+    }
+
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found." });
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
 
     // Check if the product is already saved
     const isAlreadySaved = user.savedItems.some(
@@ -499,6 +506,9 @@ app.post("/save-for-later/:userId", async (req, res) => {
     user.savedItems.push(product);
 
     await user.save();
+
+    console.log("Product saved for later:", product); // Log for debugging
+
     res.status(200).json({ message: "Product saved for later." });
   } catch (error) {
     console.error("Error saving product:", error);
