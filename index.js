@@ -323,27 +323,40 @@ app.delete("/addresses/:userId/:addressId", async (req, res) => {
   try {
     const { userId, addressId } = req.params;
 
+    // Validate ObjectId format
+    if (
+      !mongoose.Types.ObjectId.isValid(userId) ||
+      !mongoose.Types.ObjectId.isValid(addressId)
+    ) {
+      return res.status(400).json({ message: "Invalid userId or addressId" });
+    }
+
     const user = await User.findById(userId);
     if (!user) {
+      console.error(`User not found with id: ${userId}`);
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Remove the specified address
-    user.savedAddresses = user.savedAddresses.filter(
-      (address) => address._id.toString() !== addressId
+    // Check if address exists in savedAddresses
+    const addressIndex = user.savedAddresses.findIndex(
+      (address) => address._id.toString() === addressId
     );
 
-    // If only one address remains, set it as the default
+    if (addressIndex === -1) {
+      console.error(`Address not found for id: ${addressId}`);
+      return res.status(404).json({ message: "Address not found" });
+    }
+
+    // Remove the address
+    user.savedAddresses.splice(addressIndex, 1);
+
+    // Automatically set the only remaining address as default
     if (user.savedAddresses.length === 1) {
       user.savedAddresses[0].isDefault = true;
-    } else if (user.savedAddresses.length > 1) {
-      // Ensure no other address remains marked as default if more than one address is left
-      user.savedAddresses.forEach((address) => {
-        address.isDefault = false;
-      });
     }
 
     await user.save();
+
     res.status(200).json({
       message: "Address deleted successfully",
       savedAddresses: user.savedAddresses,
@@ -415,54 +428,44 @@ app.put("/addresses/:userId/default/:addressId", async (req, res) => {
   try {
     const { userId, addressId } = req.params;
 
+    // Validate ObjectId format
+    if (
+      !mongoose.Types.ObjectId.isValid(userId) ||
+      !mongoose.Types.ObjectId.isValid(addressId)
+    ) {
+      return res.status(400).json({ message: "Invalid userId or addressId" });
+    }
+
     const user = await User.findById(userId);
     if (!user) {
+      console.error(`User not found with id: ${userId}`);
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Update the default address
-    user.savedAddresses.forEach((address) => {
-      address.isDefault = address._id.toString() === addressId;
-    });
+    const address = user.savedAddresses.find(
+      (addr) => addr._id.toString() === addressId
+    );
+
+    if (!address) {
+      console.error(`Address not found with id: ${addressId}`);
+      return res.status(404).json({ message: "Address not found" });
+    }
+
+    // Set all addresses to not default
+    user.savedAddresses.forEach((addr) => (addr.isDefault = false));
+
+    // Set the specified address as default
+    address.isDefault = true;
 
     await user.save();
-    res.status(200).json({ message: "Default address updated successfully" });
+
+    res.status(200).json({
+      message: "Default address updated successfully",
+      savedAddresses: user.savedAddresses,
+    });
   } catch (error) {
     console.error("Error setting default address:", error);
     res.status(500).json({ message: "Failed to set default address", error });
-  }
-});
-
-// POST /save-for-later/:userId - Save product for later
-app.post("/save-for-later/:userId", async (req, res) => {
-  try {
-    const { product } = req.body; // Expect the product object
-    const userId = req.params.userId;
-
-    if (!product || !product.productId) {
-      return res.status(400).json({ message: "Invalid Product Data" });
-    }
-
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found." });
-
-    // Check if the product is already saved
-    const isAlreadySaved = user.savedItems.some(
-      (item) => item.productId === product.productId
-    );
-
-    if (isAlreadySaved) {
-      return res.status(400).json({ message: "Product already saved." });
-    }
-
-    // Add the product to the saved items
-    user.savedItems.push(product);
-
-    await user.save();
-    res.status(200).json({ message: "Product saved for later." });
-  } catch (error) {
-    console.error("Error saving product:", error);
-    res.status(500).json({ message: "Failed to save product for later." });
   }
 });
 
