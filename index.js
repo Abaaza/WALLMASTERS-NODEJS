@@ -11,6 +11,7 @@ const crypto = require("crypto");
 
 const User = require("./models/user");
 const Order = require("./models/order");
+const serverless = require("serverless-http");
 
 const app = express();
 const PORT = process.env.PORT || 3000; // Use the Heroku port or fallback to 3000
@@ -721,3 +722,33 @@ app.get("/auth/verify-session", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
+module.exports.handler = async (event, context) => {
+  try {
+    // Your existing code here
+
+    return {
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers":
+          "Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token",
+        "Access-Control-Allow-Methods":
+          "DELETE,GET,HEAD,OPTIONS,PATCH,POST,PUT",
+      },
+      body: JSON.stringify({ message: "Success" }),
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers":
+          "Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token",
+        "Access-Control-Allow-Methods":
+          "DELETE,GET,HEAD,OPTIONS,PATCH,POST,PUT",
+      },
+      body: JSON.stringify({ error: "Internal server error" }),
+    };
+  }
+};

@@ -1,0 +1,39 @@
+service: wallmasters-backend
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: me-south-1
+
+functions:
+  app:
+    handler: index.handler
+    events:
+      - http:
+          path: /{proxy+}
+          method: ANY
+          cors: true # Add this
+    environment:
+      NODE_ENV: production
+
+# Add global CORS configuration
+custom:
+  allowedHeaders:
+    - Content-Type
+    - Authorization
+    - X-Api-Key
+    - X-Amz-Date
+    - X-Amz-Security-Token
+    - X-Amz-User-Agent
+
+resources:
+  Resources:
+    GatewayResponse:
+      Type: "AWS::ApiGateway::GatewayResponse"
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: DEFAULT_4XX
+        RestApiId:
+          Ref: "ApiGatewayRestApi"
