@@ -4,6 +4,12 @@ provider:
   name: aws
   runtime: nodejs18.x
   region: me-south-1
+  environment:
+    CONNECTION_STRING: ${env:CONNECTION_STRING}
+    JWT_SECRET: ${env:JWT_SECRET}
+    EMAIL_USER: ${env:EMAIL_USER}
+    EMAIL_PASS: ${env:EMAIL_PASS}
+    NODE_ENV: production
 
 functions:
   app:
@@ -12,28 +18,19 @@ functions:
       - http:
           path: /{proxy+}
           method: ANY
-          cors: true # Add this
+          cors: true
     environment:
       NODE_ENV: production
 
-# Add global CORS configuration
 custom:
-  allowedHeaders:
-    - Content-Type
-    - Authorization
-    - X-Api-Key
-    - X-Amz-Date
-    - X-Amz-Security-Token
-    - X-Amz-User-Agent
+  cors:
+    origin: "*"
+    headers:
+      - Content-Type
+      - Authorization
+      - X-Amz-Date
+      - X-Api-Key
+      - X-Amz-Security-Token
 
-resources:
-  Resources:
-    GatewayResponse:
-      Type: "AWS::ApiGateway::GatewayResponse"
-      Properties:
-        ResponseParameters:
-          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
-          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
-        ResponseType: DEFAULT_4XX
-        RestApiId:
-          Ref: "ApiGatewayRestApi"
+plugins:
+  - serverless-offline
