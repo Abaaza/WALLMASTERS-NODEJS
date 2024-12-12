@@ -719,6 +719,85 @@ app.get("/auth/verify-session", (req, res) => {
   });
 });
 
+const accessToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+  expiresIn: "1h",
+});
+
+const refreshToken = jwt.sign(
+  { userId: user._id },
+  process.env.JWT_REFRESH_SECRET,
+  { expiresIn: "30d" } // or longer
+);
+
+// Save the refreshToken in the user's record, or in a separate store
+user.refreshToken = refreshToken;
+await user.save();
+
+res.status(200).json({
+  message: "Login successful",
+  user: { _id: user._id, name: user.name, email: user.email },
+  token: accessToken,
+  refreshToken: refreshToken,
+});
+
+// Create a refresh token route:
+app.post("/refresh-token", async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      return res.status(401).json({ message: "No refresh token provided" });
+    }
+
+    // Find user by refreshToken
+    const user = await User.findOne({ refreshToken });
+    if (!user) {
+      return res.status(403).json({ message: "Invalid refresh token" });
+    }
+
+    jwt.verify(
+      refreshToken,
+      process.env.JWT_REFRESH_SECRET,
+      async (err, decoded) => {
+        if (err) {
+          return res
+            .status(403)
+            .json({ message: "Invalid or expired refresh token" });
+        }
+
+        // Issue a new access token
+        const newAccessToken = jwt.sign(
+          { userId: user._id },
+          process.env.JWT_SECRET,
+          {
+            expiresIn: "1h",
+          }
+        );
+
+        // Optionally rotate refresh token to enhance security
+        const newRefreshToken = jwt.sign(
+          { userId: user._id },
+          process.env.JWT_REFRESH_SECRET,
+          {
+            expiresIn: "30d",
+          }
+        );
+        user.refreshToken = newRefreshToken;
+        await user.save();
+
+        res.json({
+          success: true,
+          token: newAccessToken,
+          refreshToken: newRefreshToken,
+          user: { _id: user._id, name: user.name, email: user.email },
+        });
+      }
+    );
+  } catch (error) {
+    console.error("Refresh token error:", error);
+    res.status(500).json({ message: "Failed to refresh token" });
+  }
+});
+
 const handler = serverless(app);
 module.exports.handler = async (event, context) => {
   return await handler(event, context);

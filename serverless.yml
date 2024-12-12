@@ -9,7 +9,6 @@ provider:
     JWT_SECRET: ${env:JWT_SECRET}
     EMAIL_USER: ${env:EMAIL_USER}
     EMAIL_PASS: ${env:EMAIL_PASS}
-    NODE_ENV: production
 
 functions:
   app:
@@ -19,18 +18,12 @@ functions:
           path: /{proxy+}
           method: ANY
           cors: true
-    environment:
-      NODE_ENV: production
 
-custom:
-  cors:
-    origin: "*"
-    headers:
-      - Content-Type
-      - Authorization
-      - X-Amz-Date
-      - X-Api-Key
-      - X-Amz-Security-Token
+package:
+  include:
+    - node_modules/**
+  exclude:
+    - node_modules/.cache/**
 
 plugins:
   - serverless-offline
