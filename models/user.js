@@ -2,7 +2,13 @@ const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true,
+  },
   password: { type: String, required: true },
   savedAddresses: {
     type: [
@@ -30,15 +36,16 @@ const userSchema = new mongoose.Schema({
   ],
   resetToken: { type: String, default: null },
   resetTokenExpiration: { type: Date, default: null },
+
+  // Add the refreshToken field here
+  refreshToken: { type: String, default: null },
 });
 
-// Add pre-save hook for duplicate address validation
+// Pre-save hook for duplicate address validation
 userSchema.pre("save", function (next) {
   const addresses = this.savedAddresses;
 
-  // Normalize fields for each address
   const normalizeString = (str) => (str || "").trim().toLowerCase();
-
   const seenAddresses = new Set();
 
   for (const address of addresses) {

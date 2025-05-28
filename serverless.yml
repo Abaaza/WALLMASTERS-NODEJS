@@ -9,6 +9,7 @@ provider:
     JWT_SECRET: ${env:JWT_SECRET}
     EMAIL_USER: ${env:EMAIL_USER}
     EMAIL_PASS: ${env:EMAIL_PASS}
+    JWT_REFRESH_SECRET: ${env:JWT_REFRESH_SECRET}
 
 functions:
   app:

@@ -3,11 +3,10 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 require("dotenv").config();
-console.log("CONNECTION_STRING:", process.env.CONNECTION_STRING);
-console.log("JWT_SECRET:", process.env.JWT_SECRET);
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
 
 const User = require("./models/user");
 const Order = require("./models/order");
@@ -30,6 +29,21 @@ mongoose
     console.error("MongoDB connection error:", err);
     process.exit(1); // Exit if DB connection fails
   });
+
+const requiredEnvVars = [
+  "CONNECTION_STRING",
+  "JWT_SECRET",
+  "JWT_REFRESH_SECRET",
+  "EMAIL_USER",
+  "EMAIL_PASS",
+];
+
+requiredEnvVars.forEach((varName) => {
+  if (!process.env[varName]) {
+    console.error(`Missing required environment variable: ${varName}`);
+    process.exit(1); // Exit the application if a required env var is missing
+  }
+});
 
 // ------------------ UTILITIES ------------------
 const generateOrderId = () => {
@@ -74,31 +88,40 @@ transporter.verify((error, success) => {
 // Define Product schema and model
 const productSchema = new mongoose.Schema({}, { collection: "products" });
 const Product = mongoose.model("Product", productSchema);
-console.log("Email User:", process.env.EMAIL_USER);
-console.log("Email Pass:", process.env.EMAIL_PASS);
 
 // ------------------ ROUTES ------------------
+
+// Login Route with Refresh Token
 app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = email.toLowerCase();
 
-    // Find the user by email
-    const user = await User.findOne({ email });
-
-    // Check if the user exists and the password matches
-    if (!user || user.password !== password) {
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Generate a JWT token
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+    // Generate access and refresh tokens
+    const accessToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
+
+    const refreshToken = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    // Save the refreshToken in the user's record
+    user.refreshToken = refreshToken;
+    await user.save();
 
     res.status(200).json({
       message: "Login successful",
       user: { _id: user._id, name: user.name, email: user.email },
-      token,
+      token: accessToken,
+      refreshToken: refreshToken,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -106,11 +129,12 @@ app.post("/login", async (req, res) => {
   }
 });
 
+// Root Route
 app.get("/", (req, res) => {
   res.send("Hello from Wallmasters Backend!");
 });
 
-// Sample API: Fetch all products
+// Fetch All Products
 app.get("/products", async (req, res) => {
   try {
     const products = await Product.find();
@@ -120,30 +144,48 @@ app.get("/products", async (req, res) => {
   }
 });
 
-// ------------------ SERVER ------------------
-
-// Register Route// Backend: register route
+// Register Route
 app.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
+    const normalizedEmail = email.toLowerCase();
 
-    const existingUser = await User.findOne({ email });
+    // Validate input
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Missing required fields." });
+    }
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    const user = new User({ name, email, password });
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({ name, email, password: hashedPassword });
     await user.save();
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+    // Generate access and refresh tokens
+    const accessToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
 
+    const refreshToken = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    // Save the refreshToken in the user's record
+    user.refreshToken = refreshToken;
+    await user.save();
+
     res.status(201).json({
       message: "User registered successfully",
-      token,
+      token: accessToken,
+      refreshToken: refreshToken,
       user: {
-        _id: user._id, // Include the user ID here
+        _id: user._id,
         name: user.name,
         email: user.email,
       },
@@ -156,17 +198,10 @@ app.post("/register", async (req, res) => {
   }
 });
 
-// Login Route
-
-// Change Password Route
+// Secure Change Password
 app.post("/change-password", async (req, res) => {
   try {
     const { email, oldPassword, newPassword } = req.body;
-
-    // Log the received email and passwords for validation
-    console.log("Received email:", email);
-    console.log("Received old password:", oldPassword);
-    console.log("Received new password:", newPassword);
 
     if (!email || !oldPassword || !newPassword) {
       console.error("Validation error: Missing fields in the request body.");
@@ -176,19 +211,17 @@ app.post("/change-password", async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) {
       console.error("User not found for email:", email);
-      return res.status(400).json({ message: "User not found" });
+      return res.status(404).json({ message: "User not found" });
     }
 
-    console.log("Stored password for user:", user.password);
-
-    // Check if the provided old password matches the stored password
-    if (user.password !== oldPassword) {
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
       console.error("Incorrect old password provided.");
       return res.status(400).json({ message: "Incorrect old password" });
     }
 
-    // Update the password
-    user.password = newPassword;
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
     await user.save();
 
     console.log("Password updated successfully for user:", email);
@@ -199,14 +232,11 @@ app.post("/change-password", async (req, res) => {
   }
 });
 
-// ------------------ SERVER START ------------------
-
-// 3. Place Order Route
+// Place Order Route
 app.post("/orders", async (req, res) => {
   try {
     const { products, totalPrice, shippingAddress, userId } = req.body;
 
-    // Create a new order instance
     const newOrder = new Order({
       orderId: generateOrderId(),
       user: userId || "guest",
@@ -215,13 +245,11 @@ app.post("/orders", async (req, res) => {
       shippingAddress,
     });
 
-    // Save the order to the database
     await newOrder.save();
 
-    // Email options for the customer
     const customerMailOptions = {
-      from: `"Wall Masters" <${process.env.EMAIL_USER}>`, // Custom sender name
-      to: shippingAddress.email, // Customer's email address
+      from: `"Wall Masters" <${process.env.EMAIL_USER}>`,
+      to: shippingAddress.email,
       subject: "Wall Masters Order Confirmation",
       text: `Hello ${
         shippingAddress.name
@@ -232,10 +260,9 @@ app.post("/orders", async (req, res) => {
         .join(", ")}\n\nRegards,\nWall Masters Team`,
     };
 
-    // Email options for yourself (admin)
     const adminMailOptions = {
-      from: `"Wall Masters" <${process.env.EMAIL_USER}>`, // Custom sender name
-      to: "info@wall-masters.com", // Your admin email address
+      from: `"Wall Masters" <${process.env.EMAIL_USER}>`,
+      to: "info@wall-masters.com",
       subject: "New Order Received - Wall Masters",
       text: `New Order Received:\n\nOrder ID: ${
         newOrder.orderId
@@ -246,15 +273,12 @@ app.post("/orders", async (req, res) => {
         .join(", ")}\n\nPlease process this order as soon as possible.`,
     };
 
-    // Send both emails asynchronously
     await Promise.all([
       transporter.sendMail(customerMailOptions),
       transporter.sendMail(adminMailOptions),
     ]);
 
     console.log("Confirmation email sent to user and admin.");
-
-    // Respond with success message and order details
     res.status(201).json({
       message: "Order placed successfully, emails sent.",
       order: newOrder,
@@ -265,7 +289,7 @@ app.post("/orders", async (req, res) => {
   }
 });
 
-// 4. Get User Orders
+// Get User Orders
 app.get("/orders/:userId", async (req, res) => {
   try {
     const orders = await Order.find({ user: req.params.userId });
@@ -276,39 +300,10 @@ app.get("/orders/:userId", async (req, res) => {
   }
 });
 
-// 5. Change Password Route
-app.post("/change-password", async (req, res) => {
-  try {
-    const { email, oldPassword, newPassword } = req.body;
-
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const isMatch = await bcrypt.compare(oldPassword, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Incorrect old password" });
-    }
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedPassword;
-    await user.save();
-
-    res.status(200).json({ message: "Password changed successfully" });
-  } catch (error) {
-    console.error("Error changing password:", error);
-    res.status(500).json({ message: "Failed to change password" });
-  }
-});
-
-// ------------------ SERVER START ------------------
-
-// GET /addresses/:userId - Retrieve Address
+// Retrieve Addresses
 app.get("/addresses/:userId", async (req, res) => {
   try {
     console.log("Retrieving addresses for user:", req.params.userId);
-
     const user = await User.findById(req.params.userId);
     if (!user) {
       console.log("User not found");
@@ -323,12 +318,11 @@ app.get("/addresses/:userId", async (req, res) => {
   }
 });
 
-// DELETE /addresses/:userId - Delete Address
+// Delete Address
 app.delete("/addresses/:userId/:addressId", async (req, res) => {
   try {
     const { userId, addressId } = req.params;
 
-    // Validate ObjectId format
     if (
       !mongoose.Types.ObjectId.isValid(userId) ||
       !mongoose.Types.ObjectId.isValid(addressId)
@@ -342,7 +336,6 @@ app.delete("/addresses/:userId/:addressId", async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Check if address exists in savedAddresses
     const addressIndex = user.savedAddresses.findIndex(
       (address) => address._id.toString() === addressId
     );
@@ -352,10 +345,8 @@ app.delete("/addresses/:userId/:addressId", async (req, res) => {
       return res.status(404).json({ message: "Address not found" });
     }
 
-    // Remove the address
     user.savedAddresses.splice(addressIndex, 1);
 
-    // Automatically set the only remaining address as default
     if (user.savedAddresses.length === 1) {
       user.savedAddresses[0].isDefault = true;
     }
@@ -372,10 +363,11 @@ app.delete("/addresses/:userId/:addressId", async (req, res) => {
   }
 });
 
+// Save New Address
 app.post("/addresses/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    const newAddress = req.body;
+    const newAddress = req.body.address; // Ensure the frontend sends { address: {...} }
 
     if (!newAddress || typeof newAddress !== "object") {
       return res.status(400).json({ message: "Invalid address format." });
@@ -390,7 +382,6 @@ app.post("/addresses/:userId", async (req, res) => {
 
     const normalizeString = (str) => (str || "").trim().toLowerCase();
 
-    // Check for duplicates
     const duplicate = user.savedAddresses.find((savedAddress) => {
       return (
         normalizeString(savedAddress.name) ===
@@ -414,7 +405,6 @@ app.post("/addresses/:userId", async (req, res) => {
       return res.status(409).json({ message: "Duplicate address detected." });
     }
 
-    // Save the new address
     user.savedAddresses.push(newAddress);
     await user.save();
 
@@ -428,12 +418,11 @@ app.post("/addresses/:userId", async (req, res) => {
   }
 });
 
-// PUT /addresses/:userId/default/:addressId - Set Default Address
+// Set Default Address
 app.put("/addresses/:userId/default/:addressId", async (req, res) => {
   try {
     const { userId, addressId } = req.params;
 
-    // Validate ObjectId format
     if (
       !mongoose.Types.ObjectId.isValid(userId) ||
       !mongoose.Types.ObjectId.isValid(addressId)
@@ -456,10 +445,7 @@ app.put("/addresses/:userId/default/:addressId", async (req, res) => {
       return res.status(404).json({ message: "Address not found" });
     }
 
-    // Set all addresses to not default
     user.savedAddresses.forEach((addr) => (addr.isDefault = false));
-
-    // Set the specified address as default
     address.isDefault = true;
 
     await user.save();
@@ -474,17 +460,16 @@ app.put("/addresses/:userId/default/:addressId", async (req, res) => {
   }
 });
 
-// POST /save-for-later/:userId - Save product for later
+// Save Product for Later
 app.post("/save-for-later/:userId", async (req, res) => {
   try {
     const { product } = req.body; // Expect the product object
-    const userId = req.params.userId;
+    const { userId } = req.params;
 
     if (!product || !product.productId) {
       return res.status(400).json({ message: "Invalid Product Data" });
     }
 
-    // Ensure the product contains images
     if (!Array.isArray(product.images) || product.images.length === 0) {
       return res.status(400).json({ message: "Product must include images." });
     }
@@ -494,7 +479,6 @@ app.post("/save-for-later/:userId", async (req, res) => {
       return res.status(404).json({ message: "User not found." });
     }
 
-    // Check if the product is already saved
     const isAlreadySaved = user.savedItems.some(
       (item) => item.productId === product.productId
     );
@@ -503,13 +487,10 @@ app.post("/save-for-later/:userId", async (req, res) => {
       return res.status(400).json({ message: "Product already saved." });
     }
 
-    // Add the product to the saved items
     user.savedItems.push(product);
-
     await user.save();
 
-    console.log("Product saved for later:", product); // Log for debugging
-
+    console.log("Product saved for later:", product);
     res.status(200).json({ message: "Product saved for later." });
   } catch (error) {
     console.error("Error saving product:", error);
@@ -517,6 +498,7 @@ app.post("/save-for-later/:userId", async (req, res) => {
   }
 });
 
+// Get Saved Items
 app.get("/saved-items/:userId", async (req, res) => {
   try {
     const user = await User.findById(req.params.userId);
@@ -525,16 +507,16 @@ app.get("/saved-items/:userId", async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const savedItems = user.savedItems || []; // Ensure it's always an array
-
-    console.log("Saved Items:", savedItems); // Debugging log
-    res.status(200).json(savedItems); // Return the saved items
+    const savedItems = user.savedItems || [];
+    console.log("Saved Items:", savedItems);
+    res.status(200).json(savedItems);
   } catch (error) {
     console.error("Error fetching saved items:", error);
     res.status(500).json({ message: "Failed to fetch saved items." });
   }
 });
 
+// Delete Saved Item
 app.delete("/saved-items/:userId/:productId", async (req, res) => {
   const { userId, productId } = req.params;
 
@@ -546,8 +528,6 @@ app.delete("/saved-items/:userId/:productId", async (req, res) => {
     }
 
     const initialLength = user.savedItems.length;
-
-    // Filter out the product to remove
     user.savedItems = user.savedItems.filter(
       (item) => item.productId !== productId
     );
@@ -559,7 +539,6 @@ app.delete("/saved-items/:userId/:productId", async (req, res) => {
     }
 
     await user.save();
-
     res.status(200).json({ message: "Item removed from saved items." });
   } catch (error) {
     console.error("Error deleting saved item:", error);
@@ -567,15 +546,16 @@ app.delete("/saved-items/:userId/:productId", async (req, res) => {
   }
 });
 
+// Send Email
 app.post("/send-email", (req, res) => {
   const { name, email, comment } = req.body;
 
   const mailOptions = {
-    from: `"Wall Masters" <${process.env.EMAIL_USER}>`, // Use verified sender email
+    from: `"Wall Masters" <${process.env.EMAIL_USER}>`,
     to: process.env.EMAIL_USER,
     subject: `New Contact Form Submission from ${name}`,
     text: `You have a new message from your contact form:
-    
+
   Name: ${name}
   Email: ${email}
   Comment: ${comment}`,
@@ -586,7 +566,7 @@ app.post("/send-email", (req, res) => {
       console.error("Error sending email:", error);
       return res.status(500).json({
         message: "Email sending failed",
-        error: error.toString(), // Return error details
+        error: error.toString(),
       });
     }
     console.log("Email sent:", info.response);
@@ -594,21 +574,20 @@ app.post("/send-email", (req, res) => {
   });
 });
 
-// Backend route to get user details
+// Get User Details (Authenticated)
 app.get("/user/details", authenticate, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-
-    // Return essential user details
     res.json({ userId: user._id, name: user.name, email: user.email });
   } catch (error) {
     res.status(500).json({ message: "Failed to retrieve user details" });
   }
 });
 
+// Request Password Reset
 app.post("/request-password-reset", async (req, res) => {
   const { email } = req.body;
   console.log("Received password reset request for email:", email);
@@ -623,10 +602,8 @@ app.post("/request-password-reset", async (req, res) => {
     const resetToken = crypto.randomBytes(32).toString("hex");
     user.resetToken = resetToken;
     user.resetTokenExpiration = Date.now() + 3600000; // Expires in 1 hour
-
     await user.save();
 
-    // Log the values saved in the database
     console.log("Saved reset token:", user.resetToken);
     console.log(
       "Token expiration:",
@@ -651,6 +628,7 @@ app.post("/request-password-reset", async (req, res) => {
   }
 });
 
+// Reset Password
 app.post("/reset-password", async (req, res) => {
   const { token, password } = req.body;
 
@@ -660,20 +638,19 @@ app.post("/reset-password", async (req, res) => {
   try {
     const user = await User.findOne({
       resetToken: token,
-      resetTokenExpiration: { $gt: Date.now() }, // Only return user if token is not expired
+      resetTokenExpiration: { $gt: Date.now() },
     });
 
     if (!user) {
-      console.error(
-        "Invalid or expired token. Token in DB may not match or is expired."
-      );
+      console.error("Invalid or expired token.");
       return res.status(400).json({ message: "Invalid or expired token" });
     }
 
     console.log("Token from DB matches and is not expired.");
 
-    // If token is valid, reset password
-    user.password = password; // Remember to hash this in production!
+    // Hash the new password before saving
+    const hashedPassword = await bcrypt.hash(password, 10);
+    user.password = hashedPassword;
     user.resetToken = undefined;
     user.resetTokenExpiration = undefined;
     await user.save();
@@ -685,7 +662,7 @@ app.post("/reset-password", async (req, res) => {
   }
 });
 
-// GET /users/:userId - Retrieve User by ID
+// Retrieve User by ID
 app.get("/users/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -702,9 +679,9 @@ app.get("/users/:userId", async (req, res) => {
   }
 });
 
-// Verify session endpoint
+// Verify Session
 app.get("/auth/verify-session", (req, res) => {
-  const token = req.headers.authorization?.split(" ")[1]; // Extract token from Authorization header
+  const token = req.headers.authorization?.split(" ")[1];
 
   if (!token) {
     return res.status(401).json({ message: "Token missing" });
@@ -714,33 +691,11 @@ app.get("/auth/verify-session", (req, res) => {
     if (err) {
       return res.status(401).json({ message: "Invalid or expired token" });
     }
-    // If verification is successful, return success status
     res.status(200).json({ message: "Token is valid" });
   });
 });
 
-const accessToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-  expiresIn: "1h",
-});
-
-const refreshToken = jwt.sign(
-  { userId: user._id },
-  process.env.JWT_REFRESH_SECRET,
-  { expiresIn: "30d" } // or longer
-);
-
-// Save the refreshToken in the user's record, or in a separate store
-user.refreshToken = refreshToken;
-await user.save();
-
-res.status(200).json({
-  message: "Login successful",
-  user: { _id: user._id, name: user.name, email: user.email },
-  token: accessToken,
-  refreshToken: refreshToken,
-});
-
-// Create a refresh token route:
+// Refresh Token Route
 app.post("/refresh-token", async (req, res) => {
   try {
     const { refreshToken } = req.body;
@@ -748,7 +703,6 @@ app.post("/refresh-token", async (req, res) => {
       return res.status(401).json({ message: "No refresh token provided" });
     }
 
-    // Find user by refreshToken
     const user = await User.findOne({ refreshToken });
     if (!user) {
       return res.status(403).json({ message: "Invalid refresh token" });
@@ -764,7 +718,6 @@ app.post("/refresh-token", async (req, res) => {
             .json({ message: "Invalid or expired refresh token" });
         }
 
-        // Issue a new access token
         const newAccessToken = jwt.sign(
           { userId: user._id },
           process.env.JWT_SECRET,
@@ -773,7 +726,6 @@ app.post("/refresh-token", async (req, res) => {
           }
         );
 
-        // Optionally rotate refresh token to enhance security
         const newRefreshToken = jwt.sign(
           { userId: user._id },
           process.env.JWT_REFRESH_SECRET,
@@ -798,6 +750,7 @@ app.post("/refresh-token", async (req, res) => {
   }
 });
 
+// ------------------ SERVERLESS HANDLER ------------------
 const handler = serverless(app);
 module.exports.handler = async (event, context) => {
   return await handler(event, context);
